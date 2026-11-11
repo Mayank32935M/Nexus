@@ -21,3 +21,4 @@ We adopt a Dual-Store Architecture:
 ## Consequences
 - **Pros**: Instant human readability, 100% portable, Git-friendly, sub-millisecond search query speeds, atomic transaction safety for approvals.
 - **Cons**: Requires synchronization between filesystem writes and SQLite indices, which is automated by `VaultIndexer`.
+

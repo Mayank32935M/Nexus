@@ -17,3 +17,4 @@ tags: [core, preferences, user]
 - Concise, precise, high-signal engineering responses.
 - Grounded claims backed by verified tests.
 - Transparent reporting of failures or limitations.
+

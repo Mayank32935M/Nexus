@@ -193,3 +193,4 @@ tags: [handoff, {target_model.lower()}, session]
             return results
         finally:
             conn.close()
+

@@ -227,3 +227,4 @@ def tool_update_project_progress(
         return {"success": True, "details": res}
     except Exception as ex:
         return {"success": False, "error": str(ex)}
+

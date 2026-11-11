@@ -119,3 +119,4 @@ class MemorySearchEngine:
             return results
         finally:
             conn.close()
+

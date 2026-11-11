@@ -256,3 +256,4 @@ class MemoryVault:
             "total_projects": len(projects),
             "categories": categories,
         }
+

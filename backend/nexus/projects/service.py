@@ -211,14 +211,16 @@ Generated: {datetime.now(timezone.utc).isoformat()}
             cl_doc = self.vault.read_file(changelog_path)
             cl_content = cl_doc["content"]
             notes_str = f" - {notes}" if notes else ""
-            log_entry = f"\n- **{task}** [{status.upper()}] by `{agent}`{notes_str}"
-            
-            # Append under current date heading or create new date section
-            date_heading = f"## [{now_date}]"
-            if date_heading in cl_content:
-                cl_content = cl_content.replace(date_heading, f"{date_heading}{log_entry}", 1)
+            log_entry = f"- **{task}** [{status.upper()}] by `{agent}`{notes_str}"
+
+            # Match any header line starting with ## [YYYY-MM-DD]
+            pattern = re.compile(rf"^##\s*\[{re.escape(now_date)}\].*$", re.MULTILINE)
+            match = pattern.search(cl_content)
+            if match:
+                end_pos = match.end()
+                cl_content = cl_content[:end_pos] + f"\n{log_entry}" + cl_content[end_pos:]
             else:
-                cl_content += f"\n\n{date_heading}\n{log_entry}"
+                cl_content += f"\n\n## [{now_date}]\n{log_entry}"
 
             self.vault.write_file(changelog_path, cl_content, agent=agent)
             self.indexer.index_single_file(changelog_path)

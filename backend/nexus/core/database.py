@@ -9,10 +9,19 @@ from nexus.config import settings
 logger = logging.getLogger("nexus.database")
 
 
+_initialized_dbs = set()
+
+
 def get_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
-    """Get a SQLite database connection with row factory enabled."""
-    target_path = db_path or settings.nexus_db_path
+    """Get a SQLite database connection with row factory enabled, auto-initializing tables if needed."""
+    target_path = (db_path or settings.nexus_db_path).resolve()
     target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    path_key = str(target_path).lower()
+    if path_key not in _initialized_dbs:
+        _initialized_dbs.add(path_key)
+        init_db(target_path)
+
     conn = sqlite3.connect(str(target_path), timeout=30.0)
     conn.row_factory = sqlite3.Row
     return conn
@@ -20,7 +29,12 @@ def get_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
 
 def init_db(db_path: Optional[Path] = None) -> None:
     """Initialize all SQLite database tables, FTS5 virtual tables, and indexes."""
-    conn = get_db_connection(db_path)
+    target_path = (db_path or settings.nexus_db_path).resolve()
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    _initialized_dbs.add(str(target_path).lower())
+
+    conn = sqlite3.connect(str(target_path), timeout=30.0)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     try:

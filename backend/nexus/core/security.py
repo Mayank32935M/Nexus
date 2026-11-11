@@ -89,3 +89,4 @@ def is_approval_needed(relative_path: str, action: str = "write") -> bool:
     """Returns True if the operation requires human approval."""
     level = classify_permission(relative_path, action)
     return level == PermissionLevel.APPROVAL_REQUIRED
+

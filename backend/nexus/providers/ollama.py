@@ -1,11 +1,28 @@
 import logging
+import socket
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 import httpx
 
 from nexus.config import settings
 from nexus.providers.base import BaseAIProvider, ProviderStatus
 
 logger = logging.getLogger("nexus.providers.ollama")
+
+
+def is_service_reachable(url: str, timeout: float = 0.1) -> bool:
+    """Fast socket-level probe to check if host and port are listening."""
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((host, port))
+        s.close()
+        return True
+    except Exception:
+        return False
 
 
 class OllamaProvider(BaseAIProvider):
@@ -24,9 +41,21 @@ class OllamaProvider(BaseAIProvider):
 
     async def check_health(self) -> ProviderStatus:
         """Asynchronously checks if local Ollama daemon is reachable and lists models."""
+        # 1. Ultra-fast 100ms socket probe
+        if not is_service_reachable(self.base_url):
+            return ProviderStatus(
+                provider_id=self.provider_id,
+                name=self.name,
+                connected=False,
+                status_message=f"Offline ({self.base_url}): daemon not running or unreachable",
+                available_models=[],
+                metadata={"endpoint": self.base_url},
+            )
+
+        # 2. Query models list
         url = f"{self.base_url}/api/tags"
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(1.0, connect=0.5)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()

@@ -1,122 +1,192 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sidebar, NavItem } from './components/layout/Sidebar';
+import { Topbar } from './components/layout/Topbar';
+import { DashboardView } from './views/DashboardView';
+import { MemoryExplorerView } from './views/MemoryExplorerView';
+import { ProjectsView } from './views/ProjectsView';
+import { AgentsView } from './views/AgentsView';
+import { SessionHistoryView } from './views/SessionHistoryView';
+import { SettingsView } from './views/SettingsView';
+import { ApprovalsModal } from './components/approvals/ApprovalsModal';
+import { api } from './api/client';
+import {
+  SystemStatus,
+  MemoryTreeNode,
+  ProjectSummary,
+  ApprovalRecord,
+  AuditLogEntry,
+} from './types';
 
-function App() {
-  const [count, setCount] = useState(0)
+export function App() {
+  const [currentTab, setCurrentTab] = useState<NavItem>('dashboard');
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [tree, setTree] = useState<MemoryTreeNode[]>([]);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalRecord[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+
+  // Navigation states
+  const [selectedPath, setSelectedPath] = useState<string | null>('CORE/SYSTEM.md');
+  const [activeProjectName, setActiveProjectName] = useState<string | null>(null);
+  const [isApprovalsOpen, setIsApprovalsOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Load all system data
+  const loadData = useCallback(async () => {
+    try {
+      const [statusRes, treeRes, projRes, appRes, auditRes] = await Promise.allSettled([
+        api.getStatus(),
+        api.getMemoryTree(),
+        api.listProjects(),
+        api.listApprovals('PENDING'),
+        api.getAuditLogs(50),
+      ]);
+
+      if (statusRes.status === 'fulfilled') setStatus(statusRes.value);
+      if (treeRes.status === 'fulfilled') setTree(treeRes.value);
+      if (projRes.status === 'fulfilled') setProjects(projRes.value);
+      if (appRes.status === 'fulfilled') setApprovals(appRes.value);
+      if (auditRes.status === 'fulfilled') setAuditLogs(auditRes.value);
+    } catch (err) {
+      console.error('System synchronization error:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    // Periodic refresh every 15 seconds
+    const interval = setInterval(loadData, 15000);
+    return () => clearInterval(interval);
+  }, [loadData]);
+
+  // Global hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCurrentTab('memory');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSyncVault = async () => {
+    try {
+      setIsSyncing(true);
+      await api.syncVault();
+      await loadData();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleApproveProposal = async (id: string) => {
+    await api.approveProposal(id, 'User');
+    await loadData();
+  };
+
+  const handleRejectProposal = async (id: string, reason?: string) => {
+    await api.rejectProposal(id, 'User', reason);
+    await loadData();
+  };
+
+  const handleOpenProjectWorkspace = (name: string) => {
+    setActiveProjectName(name);
+    setCurrentTab('projects');
+  };
+
+  const handleSelectFile = (path: string) => {
+    setSelectedPath(path);
+    setCurrentTab('memory');
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="flex h-screen bg-[#090a0f] text-slate-100 overflow-hidden font-sans">
+      {/* Sidebar */}
+      <Sidebar
+        currentTab={currentTab}
+        onSelectTab={(tab) => {
+          setCurrentTab(tab);
+          if (tab === 'projects') setActiveProjectName(null);
+        }}
+        pendingApprovalsCount={approvals.length}
+      />
 
-      <div className="ticks"></div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Topbar
+          currentTab={currentTab}
+          pendingApprovalsCount={approvals.length}
+          onOpenApprovals={() => setIsApprovalsOpen(true)}
+          onQuickSearch={() => setCurrentTab('memory')}
+          onSyncVault={handleSyncVault}
+          isSyncing={isSyncing}
+        />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <main className="flex-1 p-6 overflow-y-auto bg-[#0a0c12]">
+          {currentTab === 'dashboard' && (
+            <DashboardView
+              status={status}
+              auditLogs={auditLogs}
+              onNavigateToProjects={() => {
+                setActiveProjectName(null);
+                setCurrentTab('projects');
+              }}
+              onNavigateToMemory={() => setCurrentTab('memory')}
+              onNavigateToAgents={() => setCurrentTab('agents')}
+              onOpenProject={handleOpenProjectWorkspace}
+              onExportProjectContext={() => {
+                setCurrentTab('projects');
+              }}
+              onSelectFile={handleSelectFile}
+            />
+          )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          {currentTab === 'memory' && (
+            <MemoryExplorerView
+              tree={tree}
+              selectedPath={selectedPath}
+              onSelectPath={setSelectedPath}
+              onRefreshVault={loadData}
+            />
+          )}
+
+          {currentTab === 'projects' && (
+            <ProjectsView
+              projects={projects}
+              activeProjectName={activeProjectName}
+              onSelectProject={setActiveProjectName}
+              onRefreshProjects={loadData}
+            />
+          )}
+
+          {currentTab === 'agents' && <AgentsView />}
+
+          {currentTab === 'sessions' && <SessionHistoryView />}
+
+          {currentTab === 'settings' && (
+            <SettingsView
+              status={status}
+              auditLogs={auditLogs}
+              onSyncVault={handleSyncVault}
+              isSyncing={isSyncing}
+            />
+          )}
+        </main>
+      </div>
+
+      {/* Pending Approvals Modal */}
+      <ApprovalsModal
+        isOpen={isApprovalsOpen}
+        onClose={() => setIsApprovalsOpen(false)}
+        approvals={approvals}
+        onApprove={handleApproveProposal}
+        onReject={handleRejectProposal}
+        onRefresh={loadData}
+      />
+    </div>
+  );
 }
 
-export default App
+export default App;

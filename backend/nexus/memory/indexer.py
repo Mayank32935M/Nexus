@@ -136,3 +136,4 @@ class VaultIndexer:
             conn.commit()
         finally:
             conn.close()
+

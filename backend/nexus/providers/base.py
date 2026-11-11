@@ -29,3 +29,4 @@ class BaseAIProvider(ABC):
     async def check_health(self) -> ProviderStatus:
         """Check provider connectivity and retrieve available models."""
         pass
+

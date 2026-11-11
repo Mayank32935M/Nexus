@@ -16,3 +16,4 @@ NEXUS is a local-first personal AI intelligence ecosystem and operating system. 
 2. **Transparent, Human-Readable Memory**: All core intelligence and project context are stored in standard, portable Obsidian-compatible Markdown files.
 3. **Traceability & Governance**: Every update to memory must record author/agent identity, timestamp, and rationale. Destructive updates and core modifications require explicit user approval.
 4. **Structured Handoffs**: Context transfers between different AI models and tools are structured, verifiable, and lossless.
+

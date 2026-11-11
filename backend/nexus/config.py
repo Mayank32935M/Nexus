@@ -1,7 +1,5 @@
 import os
 from pathlib import Path
-from pydantic import Field
-from pydantic_settings import BaseSettings if False else object # type: ignore
 from dotenv import load_dotenv
 
 # Find project root (one level up from backend if running inside backend, or cwd)
